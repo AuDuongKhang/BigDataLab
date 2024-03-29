@@ -5,8 +5,8 @@
 - Install WSL2 with Ubuntu (Recommend)
 - Install default JRE/JDK (version 11.0.14) or Oracle JDK 11
 - Set local variable in .bashrc file:
-1. export PATH="$PATH:~/hadoop-3.3.6/bin"
-2. export PATH="$PATH:~/hadoop-3.3.6/sbin"
+1. export PATH="$PATH:path/to/location/of/hadoop/bin"
+2. export PATH="$PATH:path/to/location/of/hadoop/sbin"
 3. export HADOOP_HOME=path/to/location/of/hadoop
 4. export HADOOP_COMMON_JAR=$HADOOP_HOME/share/hadoop/common/hadoop-common-3.3.6.jar
 5. export HADOOP_MAPREDUCE_JAR=$HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-client-core-3.3.6.jar
