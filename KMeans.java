@@ -23,7 +23,8 @@ public class KMeans {
             Configuration conf = context.getConfiguration();
             FileSystem fs = FileSystem.get(conf);
             // Load centroids from file
-            Path centroidsPath = new Path("/task_2_1_cluster/centroids.txt");
+            Path centroidsPath = new Path(conf.get("output") + "/task_2_1_cluster/centroids.txt");
+
             try (BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(centroidsPath)))) {
                 String line;
                 while ((line = br.readLine()) != null) {
@@ -36,8 +37,11 @@ public class KMeans {
             Point dataPoint = Point.fromString(value.toString());
             int closestCentroidIdx = 0;
             double minDistance = Double.MAX_VALUE;
+
+            // Put the point into cluster using min euclidean distance
             for (int i = 0; i < centroids.size(); i++) {
                 double distance = Point.euclideanDistance(dataPoint, centroids.get(i));
+
                 if (distance < minDistance) {
                     minDistance = distance;
                     closestCentroidIdx = i;
@@ -48,27 +52,59 @@ public class KMeans {
     }
 
     public static class KMeansReducer extends Reducer<IntWritable, Text, NullWritable, Text> {
+        private BufferedWriter bw;
+
+        @Override
+        protected void setup(Context context) throws IOException, InterruptedException {
+            Configuration conf = context.getConfiguration();
+            FileSystem fs = FileSystem.get(conf);
+            Path centroidsPath = new Path(conf.get("output") + "/task_2_1_cluster/centroids.txt");
+            bw = new BufferedWriter(new OutputStreamWriter(fs.create(centroidsPath)));
+        }
+
         @Override
         protected void reduce(IntWritable key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
             List<Point> points = new ArrayList<>();
+
             for (Text value : values) {
                 points.add(Point.fromString(value.toString()));
             }
-
             Point centroid = Point.computeCentroid(points);
 
             // Output centroid coordinates only
             context.write(NullWritable.get(), new Text(centroid.toString()));
+
+            // Write updated centroids to file
+            bw.write(centroid.toString() + "\n");
+        }
+
+        @Override
+        protected void cleanup(Context context) throws IOException, InterruptedException {
+            bw.close(); // Close the buffered writer to release resources
         }
     }
 
     // Final reducer class for cluster information including centroid and points
     public static class FinalKMeansReducer extends Reducer<IntWritable, Text, NullWritable, Text> {
+        private Configuration conf;
+        private FileSystem fs;
+        private BufferedWriter bw;
+        private Path centroidsPath;
+
+        @Override
+        protected void setup(Context context) throws IOException, InterruptedException {
+            conf = context.getConfiguration();
+            fs = FileSystem.get(conf);
+            centroidsPath = new Path(conf.get("output") + "/task_2_1_cluster/centroids.txt");
+            bw = new BufferedWriter(new OutputStreamWriter(fs.create(centroidsPath)));
+        }
+
         @Override
         protected void reduce(IntWritable key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
             List<Point> points = new ArrayList<>();
+
             for (Text value : values) {
                 points.add(Point.fromString(value.toString()));
             }
@@ -85,6 +121,22 @@ public class KMeans {
             }
 
             context.write(NullWritable.get(), new Text(output.toString()));
+
+            // Write updated centroids to file
+            bw.write(centroid.toString() + "\n");
+
+            String outputFileName = "cluster_" + key.get() + ".txt";
+            Path outputPath = new Path(conf.get("output") + "/task_2_1_classes" + "/" + outputFileName);
+
+            // Write cluster information to a separate output file for each cluster
+            try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fs.create(outputPath)))) {
+                bw.write(output.toString());
+            }
+        }
+
+        @Override
+        protected void cleanup(Context context) throws IOException, InterruptedException {
+            bw.close(); // Close the buffered writer to release resources
         }
     }
 
@@ -97,10 +149,12 @@ public class KMeans {
             this.y = y;
         }
 
+        // Init the point from data
         public static Point fromString(String str) {
             String[] parts = str.split(" ");
             double x = Double.parseDouble(parts[0]);
             double y = Double.parseDouble(parts[1]);
+
             return new Point(x, y);
         }
 
@@ -108,15 +162,18 @@ public class KMeans {
             return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
         }
 
+        // Compute the centroid using arithmetic mean
         public static Point computeCentroid(List<Point> points) {
             double sumX = 0;
             double sumY = 0;
+
             for (Point point : points) {
                 sumX += point.x;
                 sumY += point.y;
             }
             double avgX = sumX / points.size();
             double avgY = sumY / points.size();
+
             return new Point(avgX, avgY);
         }
 
@@ -133,6 +190,8 @@ public class KMeans {
         }
 
         Configuration conf = new Configuration();
+        conf.set("input", args[0]);
+        conf.set("output", args[1]);
         conf.set("k", args[2]); // Set k value in configuration
         conf.set("iteration", args[3]); // Set itegration value in configuration
 
@@ -144,7 +203,7 @@ public class KMeans {
 
         // Write centroid into file
         FileSystem fs = FileSystem.get(conf);
-        Path centroidsPath = new Path("/task_2_1_cluster/centroids.txt");
+        Path centroidsPath = new Path(conf.get("output") + "/task_2_1_cluster/centroids.txt");
 
         try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fs.create(centroidsPath)))) {
             for (Point centroid : centroids) {
@@ -173,19 +232,13 @@ public class KMeans {
                 job.waitForCompletion(true);
                 // Update centroids for the next iteration
                 centroids = updateCentroids(new Path(args[1] + "/" + "_iter_" + (i + 1)), fs);
-                // Write updated centroids to file
-                try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fs.create(centroidsPath)))) {
-                    for (Point centroid : centroids) {
-                        bw.write(centroid.toString() + "\n");
-                    }
-                }
             }
         }
+
         // Set reducer back to original implementation
         job.setReducerClass(FinalKMeansReducer.class);
-
         // Set output path for the final iteration
-        TextOutputFormat.setOutputPath(job, new Path(args[1]));
+        TextOutputFormat.setOutputPath(job, new Path(args[1] + "/final_output"));
         job.waitForCompletion(true);
     }
 
@@ -209,6 +262,7 @@ public class KMeans {
 
         try (BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(inputPath)))) {
             String line;
+
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split("\\s+"); // Split by whitespace
                 double x = Double.parseDouble(parts[0]);
@@ -226,11 +280,13 @@ public class KMeans {
 
         try (BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(centroidsPath)))) {
             String line;
+
             while ((line = br.readLine()) != null) {
                 Point centroid = Point.fromString(line); // Assuming tab-separated values
                 centroids.add(centroid);
             }
         }
+
         return centroids;
     }
 }
