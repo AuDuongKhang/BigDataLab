@@ -12,7 +12,7 @@
 5. export HADOOP_MAPREDUCE_JAR=$HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-client-core-3.3.6.jar
 6. export HADOOP_CLI_JAR=$HADOOP_HOME/share/hadoop/common/lib/commons-cli-1.2.jar
 ### Step
-*** You must be already in the file location of input file, Java file, ...
+#### You must be already in the file location of input file, Java file, ...
 0. Set up Hadoop browse file system
    - Start the hadoop localhost: $ start-all.sh
    - Make directory of input file: $ hadoop fs -mkdir /path/of/csv/file
