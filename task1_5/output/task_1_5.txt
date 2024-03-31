@@ -1,0 +1,1 @@
+business: nortel:0.59,circuit:0.58,fox:0.56,gun:0.53,johnson:0.51: entertainment: walmart:0.69,carson:0.58,austria:0.42,aguilera:0.38,bach:0.36: politics: foster:0.42,exit:0.37,swansea:0.36,mock:0.35,archer:0.33: sport: mutu:0.46,hamm:0.38,mansfield:0.37,glazer:0.34,mcclaren:0.31: tech: p2p:0.42,rfid:0.37,printer:0.33,wong:0.32,cabir:0.32: 
